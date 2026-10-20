@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ввод данных пациента</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <p class="header__eyebrow">Прототип GUI</p>
+      <h1 class="header__title">Данные пациента</h1>
+      <p class="header__meta">Сделано Расулевым Сергеем</p>
+      <p class="header__note">Названия и значения наблюдений взяты из ресурса «Признаки для GUI для ПС».</p>
+    </header>
+
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <main class="main">
+      <form id="patient-form" class="form" autocomplete="off">
+        <div id="panels"></div>
+        <div class="actions">
+          <button type="button" class="btn btn--ghost" id="btn-reset">Очистить форму</button>
+          <button type="submit" class="btn btn--primary" id="btn-save">Сохранить данные (JSON)</button>
+        </div>
+        <p id="form-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <footer class="footer">
+      <p>Заполняются только нужные наблюдения. Файл сохраняется на компьютер.</p>
+    </footer>
+  </div>
+
+  <script src="признаки.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>

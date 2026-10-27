@@ -415,15 +415,119 @@
     return rows;
   }
 
-  function downloadJson(obj) {
+  function fileStamp() {
+    return new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  }
+
+  function downloadJson(obj, filename) {
     const text = JSON.stringify(obj, null, 2);
     const blob = new Blob([text], { type: "application/json;charset=utf-8" });
     const link = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     link.href = URL.createObjectURL(blob);
-    link.download = "пациент_" + stamp + ".json";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
+  }
+
+  var SOLVER_TABS = ["Общие сведения", "Сведения о состоянии", "Сведения в динамике"];
+  var MENU_NAMES = {
+    "Идентификация": true,
+    "Диагноз": true,
+    "Осмотр": true,
+    "Жалобы": true,
+    "Опрос": true,
+    "Анамнез заболевания": true,
+    "Исследования": true,
+    "Дневник наблюдений": true,
+  };
+  var NEST_GROUPS = {
+    "Опыт терапии": true,
+    "Артериальное давление": true,
+    "Диурез": true,
+    "Анализ крови на гепатит С с определением генотипа": true,
+  };
+
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function appealDate(d) {
+    return (
+      pad2(d.getDate()) +
+      "." +
+      pad2(d.getMonth() + 1) +
+      "." +
+      d.getFullYear() +
+      ", " +
+      pad2(d.getHours()) +
+      ":" +
+      pad2(d.getMinutes()) +
+      ":" +
+      pad2(d.getSeconds())
+    );
+  }
+
+  function solverCell(row) {
+    const numeric = typeof row.значение === "number";
+    const raw = Array.isArray(row.значение) ? row.значение.join("; ") : String(row.значение);
+    return {
+      Тип: numeric ? "Числовое" : "Текстовое",
+      Значение: raw,
+    };
+  }
+
+  function solverKey(row) {
+    if (row.название === "История болезни") return "История болезни_номер";
+    if (row.название === "Пол") return "Сведения паспортные_Пол";
+    return row.название;
+  }
+
+  function buildSolverObject(rows) {
+    const now = new Date();
+    const data = {};
+    SOLVER_TABS.forEach(function (tab) {
+      data[tab] = {};
+    });
+
+    rows.forEach(function (row) {
+      const parts = String(row.раздел || "").split(" / ");
+      const tab = SOLVER_TABS.indexOf(parts[0]) !== -1 ? parts[0] : SOLVER_TABS[0];
+      const groups = parts.slice(1).filter(function (part) {
+        return part && !MENU_NAMES[part];
+      });
+      const group = groups.length ? groups[groups.length - 1] : "";
+      if (group && NEST_GROUPS[group]) {
+        if (!data[tab][group] || data[tab][group].Тип) data[tab][group] = {};
+        data[tab][group][group + "_" + row.название] = solverCell(row);
+        return;
+      }
+      data[tab][solverKey(row)] = solverCell(row);
+    });
+
+    const record = {};
+    record["дата обращения"] = appealDate(now);
+    record["Данные"] = data;
+
+    const root = {};
+    root["ИБ_" + now.getTime()] = record;
+    return {
+      "История болезни или наблюдений v.4": root,
+    };
+  }
+
+  function rowsOrWarn() {
+    const form = $("patient-form");
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      setStatus("Проверьте числовые поля: значение вне допустимых границ.", true);
+      return null;
+    }
+    const rows = collectRows();
+    if (!rows.length) {
+      setStatus("Заполните хотя бы одно наблюдение.", true);
+      return null;
+    }
+    return rows;
   }
 
   function setStatus(message, isError) {
@@ -452,25 +556,26 @@
 
     $("patient-form").addEventListener("submit", function (event) {
       event.preventDefault();
-      const form = $("patient-form");
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        setStatus("Проверьте числовые поля: значение вне допустимых границ.", true);
-        return;
-      }
-      const rows = collectRows();
-      if (!rows.length) {
-        setStatus("Заполните хотя бы одно наблюдение.", true);
-        return;
-      }
-      downloadJson({
-        метаданные: {
-          источник: rootKey,
-          версия_прототипа: "3.0",
+      const rows = rowsOrWarn();
+      if (!rows) return;
+      downloadJson(
+        {
+          метаданные: {
+            источник: rootKey,
+            версия_прототипа: "3.0",
+          },
+          наблюдения: rows,
         },
-        наблюдения: rows,
-      });
-      setStatus("Файл JSON сохранён. Записей: " + rows.length + ".");
+        "пациент_" + fileStamp() + ".json"
+      );
+      setStatus("Короткий JSON сохранён. Записей: " + rows.length + ".");
+    });
+
+    $("btn-save-solver").addEventListener("click", function () {
+      const rows = rowsOrWarn();
+      if (!rows) return;
+      downloadJson(buildSolverObject(rows), "история_болезни_" + fileStamp() + ".json");
+      setStatus("Формат-2 для решателя сохранён. Записей: " + rows.length + ".");
     });
   }
 
